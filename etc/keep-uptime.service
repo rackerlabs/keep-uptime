@@ -1,0 +1,14 @@
+[Unit]
+Description=Cloud Keep Uptime Agent
+After=network.target
+
+[Service]
+WorkingDirectory=/opt/keep-uptime
+Environment=VIRTUAL_ENV="/opt/keep-uptime/.venv"
+Environment=PATH="$VIRTUAL_ENV/bin:$PATH"
+ExecStart=/opt/keep-uptime/uptime.py
+ExecReload=/bin/kill -s HUP $MAINPID
+ExecStop=/bin/kill -s TERM $MAINPID
+
+[Install]
+WantedBy=multi-user.target
