@@ -1,6 +1,6 @@
-apscheduler
+setuptools
 rackspacesdk
 statsd
 futures
-setuptools
 funcsigs
+apscheduler
