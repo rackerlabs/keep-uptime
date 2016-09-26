@@ -20,12 +20,12 @@ def timer(username, api_key, region, statsd_server):
                                  region=region)
     statsd = StatsClient(host=statsd_server)
 
-    with statsd.timer('uptime.{}'.format(region.lower())):
-        secret = conn.key_manager.create_secret(
-                name="Uptime Test",
-                payload="Test",
-                payload_content_type="text/plain"
-            )
+    start = time.time()
+    secret = conn.key_manager.create_secret(name="Uptime Test", payload="Test",
+            payload_content_type="text/plain")
+
+    timer = int((time.time() - start) * 1000)
+    statsd.timing('uptime.{}'.format(region.lower()), timer)
 
     conn.key_manager.delete_secret(secret)
 
