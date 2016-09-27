@@ -28,7 +28,7 @@ def timer(username, api_key, region, statsd_server):
     statsd.timing('uptime.{}'.format(region.lower()), timer)
 
     for secret in conn.key_manager.secrets():
-        conn.key_manager.delete_secret(secret, ignore_missing=False)
+        conn.key_manager.delete_secret(secret)
 
 
 def main():
