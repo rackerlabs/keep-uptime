@@ -5,30 +5,65 @@ import argparse
 import json
 import logging
 import os
+import requests
 import signal
 import sys
 import time
 
 from apscheduler.schedulers.background import BackgroundScheduler
 from datetime import datetime
-from rackspace import connection
 from statsd import StatsClient
 
 
 def timer(username, api_key, region, statsd_server):
-    conn = connection.Connection(username=username, api_key=api_key,
-                                 region=region)
-    statsd = StatsClient(host=statsd_server)
+    identity_data = {
+        'auth': {
+            'RAX-KSKEY:apiKeyCredentials': {
+                'username': username,
+                'apiKey': api_key
+            }
+        }
+    }
+    identity_hdr = {'content-type': 'application/json'}
+
+    identity_resp = requests.post(
+            'https://identity.api.rackspacecloud.com/v2.0/tokens',
+            data=json.dumps(identity_data),
+            headers=identity_hdr)
+
+    identity_resp.raise_for_status()
+    identity = identity_resp.json()
+
+    token = identity['access']['token']['id']
+    for catalog_item in identity['access']['serviceCatalog']:
+        if catalog_item['name'] == 'cloudKeep':
+            for endpoint in catalog_item['endpoints']:
+                if endpoint['region'] == region.upper():
+                    endpoint_url = endpoint['publicURL']
 
     start = time.time()
-    secret = conn.key_manager.create_secret(name="Uptime Test", payload="Test",
-            payload_content_type="text/plain")
+
+    secret_data = {
+        'name': 'Uptime Test',
+        'payload': 'Uptime Test Payload',
+        'payload_content_type': 'text/plain'
+    }
+    secret_hdr = {
+        'content-type': 'application/json',
+        'x-auth-token': token
+    }
+    secret_resp = requests.post('{}/v1/secrets'.format(endpoint_url),
+                                data=json.dumps(secret_data),
+                                headers=secret_hdr)
+    secret_resp.raise_for_status()
+    secret = secret_resp.json()
+
+    delete_resp = requests.delete(secret['secret_ref'], headers=secret_hdr)
+    delete_resp.raise_for_status()
 
     timer = int((time.time() - start) * 1000)
+    statsd = StatsClient(host=statsd_server)
     statsd.timing('uptime.{}'.format(region.lower()), timer)
-
-    for secret in conn.key_manager.secrets():
-        conn.key_manager.delete_secret(secret)
 
 
 def main():
